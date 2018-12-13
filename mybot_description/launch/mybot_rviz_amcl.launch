@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Launch the ZED wrapper node -->
+  <arg name="zed"          default="true"  />
+   <!-- Enable/disable 2D mode -->
+  <arg name="two_d_mode"   default="true" />
+  <!-- Enable/Disable sensor fusion -->
+  <!-- pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp --> 
+  <group if="$(arg zed)">
+    <include file="$(find mybot_bringup)/launch/include/zed.launch">
+      <!-- Enable/Disable odometry TF from ZED -->
+      <arg name="publish_tf"     value="false" />
+    </include>
+  </group>
+ <!-- pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp -->
+  <arg name="razor_config_file" default="$(find razor_imu_9dof)/config/my_razor.yaml"/>
+  <node pkg="razor_imu_9dof" type="imu_node.py" name="imu_node" output="screen">
+    <rosparam file="$(arg razor_config_file)" command="load"/>
+  </node>
+  <!-- Launch IMU coordinate transform in base link -->
+  <node pkg="imu_transformer" type="imu_transformer_node" name="imu_transformer" output="screen">
+    <remap from="imu_in/data"  to="imu/data"/>
+    <remap from="imu_out/data" to="imu"/>
+  </node>
+<!-- pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp -->
+  <include file="$(find mybot_control)/launch/control.launch">
+    <!-- Publish odom TF from motor controller -->
+    <arg name="enable_odom_tf"     value="false" />
+    <!-- Launch filter externally. See below -->
+    <arg name="filter"             value="false" />
+  </include>
+<!-- pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp -->
+  <param name="robot_description" command="$(find xacro)/xacro.py '$(find mybot_description)/urdf/mybot.xacro'"/>
+
+  <!-- send fake joint values -->
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+    <param name="use_gui" value="False"/>
+  </node>
+
+  <!-- Combine joint values -->
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher"/>
+
+  <!-- Show in Rviz   -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find mybot_description)/rviz/amcl.rviz"/>
+
+
+</launch>

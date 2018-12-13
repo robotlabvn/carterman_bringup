@@ -1,0 +1,98 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Launch the ZED wrapper node -->
+  <arg name="zed"          default="true"  />
+   <!-- Enable/disable 2D mode -->
+  <arg name="two_d_mode"   default="true" />
+  <!-- Enable/Disable sensor fusion -->
+  <arg name="filter"       default="true" />
+  <arg name="zed_namespace"		    	default="zed" />
+
+  <arg name="svo_file"              	default="" /> <!-- <arg name="svo_file" default="path/to/svo/file.svo"> -->
+
+  <arg name="camera_model"         	default="1" /> <!-- 0=ZED, 1=ZEDM-->
+  <arg name="serial_number"        	default="0" />
+  <arg name="verbose"              	default="true" />
+  <arg name="resolution"           	default="2" /> <!--0=RESOLUTION_HD2K, 1=RESOLUTION_HD1080, 2=RESOLUTION_HD720, 3=RESOLUTION_VGA -->
+  <arg name="frame_rate"           	default="30" />
+  <!-- RESOLUTION_HD2K   -> 2208*1242, available framerates: 15 fps.
+       RESOLUTION_HD1080 -> 1920*1080, available framerates: 15, 30 fps.
+       RESOLUTION_HD720  -> 1280*720,  available framerates: 15, 30, 60 fps.
+       RESOLUTION_VGA    -> 672*376,   available framerates: 15, 30, 60, 100 fps. -->
+
+  <arg name="rgb_topic"               	default="/rgb/image_rect_color" />
+  <arg name="depth_topic"             	default="/depth/depth_registered" />
+  <arg name="camera_info_topic"       	default="/rgb/camera_info" />
+  <arg name="depth_camera_info_topic" 	default="/depth/camera_info" />
+  <arg name="camera_frame"              default="zed_camera_center" />
+  
+  <group ns="$(arg zed_namespace)">
+	<!-- ZED Wrapper Node-->
+	<include file="$(find mybot_bringup)/launch/include/zed.launch">
+          <!-- Enable/Disable odometry TF from ZED -->
+          <arg name="publish_tf"                value="false" />
+	  <arg name="svo_file"            	value="$(arg svo_file)" />
+	  <arg name="camera_model"        	value="$(arg camera_model)" />
+	  <arg name="serial_number"       	value="$(arg serial_number)" /> 
+	  <arg name="resolution"          	value="$(arg resolution)" />
+	  <arg name="frame_rate"          	value="$(arg frame_rate)" />
+	  <arg name="verbose"             	value="$(arg verbose)" />
+	    
+	  <arg name="rgb_topic"                 value="$(arg rgb_topic)" />
+	  <arg name="depth_topic"               value="$(arg depth_topic)" />
+	  <arg name="rgb_info_topic"       	value="$(arg camera_info_topic)" />
+	  <arg name="depth_cam_info_topic" 	value="$(arg depth_camera_info_topic)" />
+	  <arg name="base_link"                 value="$(arg camera_frame)" />
+	</include>
+  
+	<!-- RTAB-map Node-->
+	  <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
+	  <arg name="rtabmap_args"		        value="--delete_db_on_start" />
+	  <arg name="rgb_topic"               	value="$(arg rgb_topic)" />
+	  <arg name="depth_topic"             	value="$(arg depth_topic)" />
+	  <arg name="camera_info_topic"       	value="$(arg camera_info_topic)" />
+	  <arg name="depth_camera_info_topic" 	value="$(arg depth_camera_info_topic)" />
+	  <arg name="frame_id"                  value="$(arg camera_frame)" />
+	</include>
+  </group>
+
+  <!-- pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp --> 
+  <!--group if="$(arg zed)">
+    <include file="$(find mybot_bringup)/launch/include/zed.launch">
+      
+      <arg name="publish_tf"     value="false" />
+    </include>
+  </group-->
+ <!-- pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp -->
+  <arg name="razor_config_file" default="$(find razor_imu_9dof)/config/my_razor.yaml"/>
+  <node pkg="razor_imu_9dof" type="imu_node.py" name="imu_node" output="screen">
+    <rosparam file="$(arg razor_config_file)" command="load"/>
+  </node>
+  <!-- Launch IMU coordinate transform in base link -->
+  <!--node pkg="imu_transformer" type="imu_transformer_node" name="imu_transformer" output="screen">
+    <remap from="imu_in/data"  to="imu/data"/>
+    <remap from="imu_out/data" to="imu"/>
+  </node-->
+<!-- pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp -->
+  <include file="$(find mybot_control)/launch/control.launch">
+    <!-- Publish odom TF from motor controller -->
+    <arg name="enable_odom_tf"     value="false" />
+    <!-- Launch filter externally. See below -->
+    <arg name="filter"             value="true" />
+  </include>
+	
+<!-- pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp -->
+  <param name="robot_description" command="$(find xacro)/xacro.py '$(find mybot_description)/urdf/mybot.xacro'"/>
+
+  <!-- send fake joint values -->
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+    <param name="use_gui" value="true"/>
+  </node>
+
+  <!-- Combine joint values -->
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher"/>
+
+  <!-- Show in Rviz   -->
+  <!--node name="rviz" pkg="rviz" type="rviz"/-->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find mybot_description)/rviz/mybot.rviz"/>
+</launch>
