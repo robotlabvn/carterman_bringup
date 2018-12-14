@@ -1,3 +1,2 @@
 # Carterman Robot Project 
-Bring up
-hjhjhj
+Bring up Carterman project
